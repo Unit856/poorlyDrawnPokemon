@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Preflight{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Deployment preflight</h1>
+
+
+  {% if report.failed %}
+    <p class="error">Something here will break the pack. Fix the FAIL rows before exporting.</p>
+  {% elif report.warned %}
+    <p class="notice">Usable, but there are warnings.</p>
+  {% else %}
+    <p class="notice">All checks passed.</p>
+  {% endif %}
+
+  <table>
+    <thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for check in report.checks %}
+        <tr>
+          <td>{{ check.name }}</td>
+          <td><span class="pill status-{{ check.status }}">{{ check.symbol }}</span></td>
+          <td class="wrap">{{ check.detail }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if not ran_network %}
+    <p>
+      <a class="button-link" href="/admin/preflight?run=1">Run the live network checks</a>
+    </p>
+    <p class="muted small">
+      This fetches your own public URL from this server, the same way a Steam
+      client would.
+    </p>
+  {% else %}
+    <p><a href="/admin/preflight">Back to the offline summary</a></p>
+  {% endif %}
+
+  <h2>Still a human step</h2>
+  <ul class="muted small">
+    <li>Upload the CSV through Ganymede's Lab and confirm the picture shows in preview
+      (acceptance criterion 9).</li>
+    <li>Play one question in a real Trivia Tricks match and confirm the transparent
+      drawing is legible against the in-game frame. If it is not, switch the canvas
+      background to <code>#F7F7F7</code> before v1 ships.</li>
+  </ul>
+</div>
+{% endblock %}

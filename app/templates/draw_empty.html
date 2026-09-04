@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Nothing to draw{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h1>Nothing to draw</h1>
+  <p>
+    Drake messed something up, and now there are no Pokemon.
+  </p>
+  <pre>docker compose exec app python -m app.cli seed</pre>
+  <p><a href="/">Back to the lobby</a></p>
+</div>
+{% endblock %}

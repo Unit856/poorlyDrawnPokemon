@@ -1,0 +1,31 @@
+﻿uniqueId,question,optionA,optionB,optionC,optionD,fixedOrder,correctAnswer,credit,imageURL,answerExplanation
+1,"You can find an example Steam Workshop file under ""Documents\Trivia Tricks""!",TRUE,FALSE,,,TRUE,A,3-Tricks,,You can learn how to create question packs by checking out the Steam Guide! It's easy!
+2,How many Mr. Tricks are in this image?,5,6,7,8,TRUE,D,3-Tricks,https://raw.githubusercontent.com/TriviaTricks/TriviaTricksWorkshopStorage/refs/heads/main/ExampleWorkshop/2-Many-Tricks.png,
+3,"You can make a picture question by adding a URL to the ""image URL"" section.",TRUE,FALSE,,,TRUE,A,3-Tricks,https://raw.githubusercontent.com/TriviaTricks/TriviaTricksWorkshopStorage/refs/heads/main/ExampleWorkshop/3-Dash.png,"There are lots of image hosting services online! Some suggestions would be imgbox and DirectUpload, but any site that supports hotlinking images should work!"
+4,"You can even put links to MP4s in the ""image URL"" section for animated questions!",WOW,NOT WOW,,,TRUE,A,3-Tricks,https://raw.githubusercontent.com/TriviaTricks/TriviaTricksWorkshopStorage/refs/heads/main/ExampleWorkshop/4-Sakura-Dance.mp4,"GIFs also work, but MP4s load much quicker and have smoother playback!"
+5,"You can hide answers by leaving an option empty, like so.",TRUE,FALSE,,,TRUE,A,3-Tricks,,
+6,Which of the following characters does NOT exist as a computer-controlled opponent?,Lady T,Cool Guy,Mr. Ricks,,FALSE,A,3-Tricks,,You can create questions that only have 2 or 3 answers!
+7,Friend Pass was added to Trivia Tricks in 2023.,TRUE,FALSE,,,TRUE,A,3-Tricks,,"Entering all-capitals ""TRUE"" or ""FALSE"" in your Workshop pack is fine, the letter casing will be automatically fixed in-game!"
+8,"Don't forget to include your name in the ""credit"" section if you want people to know you wrote the question!",TRUE,FALSE,,,TRUE,A,,,"An empty credits field will auto-fill the credit to ""Player Created"""
+9,When did Trivia Tricks release in Early Access?,2019,2020,2021,2023,TRUE,B,3-Tricks,,"We recommend using ""fixedOrder"" when you've got answer options that would read better when listed sequentially. Otherwise leave it false!"
+10,Want to add more questions? Just add more rows!,TRUE,FALSE,,,TRUE,A,3-Tricks,,
+11,"If you have any questions, please check the Steam guide! Enjoy creating question packs!",TRUE,FALSE,,,TRUE,A,3-Tricks,,
+12,Who owns the Trivia Tricks Workshop Lab?,Ganymede,Negative,Robin,Nigel,FALSE,A,3-Tricks,,"If you click ""Manage Workshop"" on the Main Menu, then you can see Ganymede!"
+13,"In the Main Menu, how many coffee cups are on the table?",1,2,3,4,TRUE,B,3-Tricks,,"Don't forget, you can leave the Answer Explanation section empty if you don't want to see one!"
+14,What is the name of the Trickster featured on the poster in the Main Menu?,Lady T,Mrs. Tricks,Trinity,Veronica,FALSE,A,3-Tricks,,"If you look in the bottom left corner of the poster, you can see her signature."
+15,Where do you 'Get on Crab'?,Options Menu,Server Browser,Lobby Menu,Statistics Menu,FALSE,A,Crab,,This also awards you an achievement!
+16,Who was the first 'Co-Op Vs Boss' contestant in 'Trivia Tricks'?,Santa,King,Negative,Summer,FALSE,A,3-Tricks,,The Vs Boss Mode debuted for the Christmas update in 2020 with Santa and Krampus as separate bosses! King was added as a permanent inclusion in January 2021.
+17,Which of the following is NOT a selectable stage in 'Trivia Tricks'?,King's Castle,Isla del Trickster,Halloween Hills,Studio,FALSE,A,3-Tricks,,
+18,What was the original name of 'Trivia Tricks'?,Party Tricks,New Tricks,Trivia Quiz,Trivia Trucks,FALSE,A,3-Tricks,,"'Trivia Tricks' was originally a party game called 'Party Tricks', but we decided a trivia game was much more feasible for our small team!"
+19,"If you played a full Short Standard game, how many questions would you be asked?",5,10,20,40,TRUE,C,3-Tricks,,
+20,Mr. Tricks is sad when the players defeat which boss character?,King,Summer,Negative,Ganymede,FALSE,A,Mr. Tricks,,He's so shiny!
+21,Which 'Trivia Tricks' boss was originally designed for a now-cancelled game?,Negative,King,Summer,Ganymede,FALSE,A,3-Tricks,,"Negative was originally planned for 'Party Tricks', but we liked his design so much we repurposed him for 'Trivia Tricks'!"
+22,Which of the following bosses does NOT have a Chance Round?,Nigel,King,Summer,Negative,FALSE,A,3-Tricks,,"Nigel, Robin, Ganymede, Dash and Sakura don't have Chance Rounds and instead focus on specific categories!"
+23,"Before becoming 'Saturday Night Trivia', which day of the week was the event held?",Monday,Tuesday,Wednesday,Friday,TRUE,B,3-Tricks,,"We felt like the weekend would be a more convenient time for players to join, so we moved it to Saturday! We miss the alliteration though."
+24,How many Twitch characters can be played with at once?,1,2,3,4,TRUE,D,3-Tricks,,You can play with up to 4 different Twitch chats at once!
+25,Which 'Co-Op Vs Boss' was in 'Trivia Tricks' at launch as a hard difficulty AI Easter Egg?,King,Negative,Nigel,Ganymede,FALSE,A,3-Tricks,,
+26,Which of the following is NOT a 'status' in 'Trivia Tricks'?,Confused,Inked,Super Streak,Frozen,FALSE,A,3-Tricks,,
+27,Unlocking all achievements in 'Trivia Tricks' rewards you with which cosmetic?,Golden Pants,Golden Crown,,,FALSE,A,3-Tricks,,
+28,Which boss has a similar Chance Round to Negative?,Krampus,Santa,Robin,King,FALSE,A,3-Tricks,,"Krampus, like Negative, only gives out Chance Round balls that have a negative value."
+29,How many Tricksters are in the audience?,0,1,5,10,TRUE,B,???,,
+30,Which of the following categories is turned off by default?,Anime,Video Games,History,Art & Literature,FALSE,A,3-Tricks,,

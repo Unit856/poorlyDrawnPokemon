@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Who's That Pokémon{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Who's That Pokémon</a>
+    {% if user %}
+      <nav>
+        <a href="/">Lobby</a>
+        <a href="/drawings">My Drawings</a>
+        <a href="/profile">Profile</a>
+        {% if user.is_admin %}
+          <a href="/admin/queue">Queue</a>
+          <a href="/admin/users">Users</a>
+        {% endif %}
+        <span class="who">{{ user.display_name }}{% if user.is_admin %} <span class="tag">admin</span>{% endif %}</span>
+        <form method="post" action="/logout" class="inline">
+          <button class="link" type="submit">Log out</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h1>Profile</h1>
+
+  {% if saved %}<p class="notice">Saved.</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <form method="post" action="/profile">
+    <label>Display name
+      <input type="text" name="display_name" value="{{ user.display_name }}" maxlength="32" required>
+    </label>
+    <p class="muted small">
+      This is the credit printed on your questions.
+    </p>
+    <button type="submit">Save</button>
+  </form>
+
+  <dl class="facts">
+    <dt>Username</dt><dd>{{ user.username }}</dd>
+    <dt>Artist slug</dt><dd><code>{{ user.slug }}</code></dd>
+    <dt>Role</dt><dd>{{ user.role }}</dd>
+  </dl>
+
+  <p class="muted small">
+    We use this to keep track of what art belongs to who.
+  </p>
+</div>
+{% endblock %}

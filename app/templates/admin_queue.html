@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% macro action(d, verb, label, active_status, kind='') %}
+  <form method="post" action="/admin/submissions/{{ d.id }}/{{ verb }}" class="inline">
+    <input type="hidden" name="status" value="{{ active_status }}">
+    <button type="submit" {% if kind %}class="{{ kind }}"{% endif %}>{{ label }}</button>
+  </form>
+{% endmacro %}
+
+{% block title %}Review queue{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Review queue</h1>
+
+  {% if notice %}<p class="notice">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  {% if not settings.require_approval %}
+    <p class="muted small">
+      Approval is switched <strong>off</strong>, so new drawings are approved on
+      submission and this queue stays empty. You can still unapprove, reject or
+      delete anything from the tabs below.
+      <a href="/admin/settings">Change the setting</a>.
+    </p>
+  {% endif %}
+
+  <nav class="tabs">
+    {% for key in ['pending', 'approved', 'rejected', 'deleted'] %}
+      <a class="tab {% if active_status == key %}active{% endif %}"
+         href="/admin/queue?status={{ key }}">
+        {{ key|capitalize }} <span class="count">{{ counts[key] }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  {% if not drawings %}
+    <p class="muted">Nothing {{ active_status }}.</p>
+  {% else %}
+    <div class="gallery">
+      {% for d in drawings %}
+        <figure class="gallery-item">
+          <div class="thumb">
+            <img src="{{ d.image_path }}" alt="{{ d.pokemon_name }} by {{ d.artist }}"
+                 width="200" height="200" loading="lazy">
+          </div>
+          <figcaption>
+            <span class="gallery-name">{{ d.pokemon_name }}</span>
+            <span class="muted small">by {{ d.artist }} · {{ d.created_at.strftime('%d %b %Y') }}</span>
+            {% if d.unique_id %}
+              <span class="muted small">uniqueId {{ d.unique_id }}</span>
+            {% endif %}
+
+            <div class="queue-actions">
+              {% if d.status == 'pending' %}
+                {{ action(d, 'approve', 'Approve', active_status) }}
+                {{ action(d, 'reject', 'Reject', active_status, 'secondary') }}
+              {% elif d.status == 'approved' %}
+                {{ action(d, 'unapprove', 'Unapprove', active_status, 'secondary') }}
+                {{ action(d, 'reject', 'Reject', active_status, 'secondary') }}
+              {% elif d.status == 'rejected' %}
+                {{ action(d, 'unreject', 'Unreject', active_status) }}
+              {% endif %}
+              {% if d.status != 'deleted' %}
+                {{ action(d, 'delete', 'Delete', active_status, 'danger') }}
+              {% endif %}
+            </div>
+          </figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2>What these do</h2>
+  <ul class="muted small">
+    <li><strong>Reject</strong> keeps the drawing in the artist's gallery, excludes it
+      from export, and <em>still counts</em> toward the picker — so rejecting is not
+      a way to get the same Pokémon dealt again.</li>
+    <li><strong>Delete</strong> hides it from the artist, excludes it from export, and
+      <em>releases</em> the Pokémon back to the picker. The file may stay on disk and
+      its drawing number is never reused.</li>
+    <li><strong>Unapprove</strong> and <strong>Delete</strong> retire the question's
+      uniqueId permanently. Approving the same drawing again creates a
+      <em>new</em> question with a new number — it is not a reversible toggle.</li>
+  </ul>
+</div>
+{% endblock %}

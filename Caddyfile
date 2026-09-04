@@ -1,0 +1,50 @@
+# Reverse proxy + automatic TLS for Who's That Pokemon (scope 8.3, 13).
+#
+# Used only with the optional profile:
+#   docker compose --profile caddy up -d
+#
+# WTP_HOSTNAME must be a real DNS name pointing at this box, and ports 80/443
+# must reach it — Caddy needs both to issue a certificate.
+
+# No global options block on purpose. Caddy's `email` directive requires an
+# argument, so wiring it to an optional env var makes an empty value a hard
+# parse error and the container crash-loops before serving anything. Certificate
+# issuance works fine without a contact address; if you want expiry notices, add
+# a block here by hand:
+#
+#   {
+#       email you@example.com
+#   }
+
+{$WTP_HOSTNAME} {
+	encode zstd gzip
+
+	# Drawings. These are fetched directly by Steam clients, so the headers here
+	# are part of the contract (scope 8.2) — the app sets them and this block
+	# must not strip or override them.
+	handle /images/* {
+		reverse_proxy app:8000 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	handle {
+		reverse_proxy app:8000 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	header {
+		# The site is auth-gated and not meant to be framed.
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		# Do not advertise the stack to the players who see this hostname.
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

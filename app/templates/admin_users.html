@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>Users</h1>
+
+  {% if notice %}<p class="notice">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <table>
+    <thead>
+      <tr><th>Username</th><th>Display name (credit)</th><th>Artist slug</th><th>Role</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.display_name }}</td>
+        <td><code>{{ u.slug }}</code></td>
+        <td>{{ u.role }}</td>
+        <td class="actions">
+          <form method="post" action="/admin/users/{{ u.id }}/password" class="inline">
+            <input type="password" name="password" placeholder="new password" minlength="8">
+            <button type="submit">Reset</button>
+          </form>
+          <form method="post" action="/admin/users/{{ u.id }}/role" class="inline">
+            <input type="hidden" name="role" value="{{ 'player' if u.is_admin else 'admin' }}">
+            <button type="submit">Make {{ 'player' if u.is_admin else 'admin' }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">
+    Leaving the password box empty generates a temporary one and shows it once.
+    There is no email reset flow — you hand the password over yourself.
+  </p>
+
+  <h2>Create an account</h2>
+  <form method="post" action="/admin/users/create" class="stack">
+    <label>Username
+      <input type="text" name="username" required>
+      <span class="muted small">
+        Becomes the permanent artist slug in every filename this account writes.
+        It cannot be changed later, and two usernames that slugify the same are
+        rejected rather than auto-numbered.
+      </span>
+    </label>
+    <label>Display name (optional)
+      <input type="text" name="display_name" maxlength="32">
+      <span class="muted small">Used as the question credit. Defaults to the username.</span>
+    </label>
+    <label>Password
+      <input type="password" name="password" minlength="8" required>
+    </label>
+    <label>Role
+      <select name="role">
+        <option value="player">Player</option>
+        <option value="admin">Admin</option>
+      </select>
+    </label>
+    <button type="submit">Create account</button>
+  </form>
+</div>
+{% endblock %}

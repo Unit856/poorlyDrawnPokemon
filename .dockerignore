@@ -1,0 +1,9 @@
+.git/
+data/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+tests/
+*.docx
+*.md

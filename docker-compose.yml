@@ -1,0 +1,66 @@
+services:
+  app:
+    build: .
+    # Explicit tag so the image has a stable name regardless of the directory
+    # name. Needed if you ship a pre-built image (docker save/load, or a
+    # registry) instead of building on the server.
+    image: ${WTP_IMAGE:-whos-that-pokemon:latest}
+    restart: unless-stopped
+    environment:
+      WTP_DATA_DIR: /data
+      # The Secure cookie flag follows X-Forwarded-Proto, which both the bundled
+      # Caddy and the documented nginx config set. Force it with "1" if you
+      # terminate TLS somewhere that does not.
+      WTP_SECURE_COOKIES: ${WTP_SECURE_COOKIES:-}
+    volumes:
+      - wtp-data:/data
+    expose:
+      - "8000"
+    ports:
+      # Loopback only. Either use the bundled Caddy profile below, or point an
+      # existing host nginx/Caddy at 127.0.0.1:8000 (scope 8.3).
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Optional TLS terminator. This box already runs other game services, so it is
+  # behind a profile rather than assumed: ports 80/443 may well be taken.
+  #
+  #   docker compose --profile caddy up -d
+  #
+  # Leave it out entirely if you already have a reverse proxy on the host; see
+  # docs/DEPLOY.md for the nginx server block.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["caddy"]
+    depends_on:
+      - app
+    environment:
+      # The hostname Caddy gets a certificate for. Required when this profile is
+      # enabled — but it cannot use compose's `:?` required-variable form,
+      # because interpolation happens even for profiles that are switched off,
+      # which would break a plain `docker compose up`. The placeholder is
+      # deliberately invalid so Caddy fails immediately and visibly instead.
+      WTP_HOSTNAME: ${WTP_HOSTNAME:-SET-WTP_HOSTNAME-IN-ENV.invalid}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  # Database and images together. Per scope 13 they are the entire product
+  # state, so they back up as one unit.
+  wtp-data:
+  # Certificates live here. Losing this volume means re-issuing them, which
+  # rate limits will punish if it happens repeatedly.
+  caddy-data:
+  caddy-config:

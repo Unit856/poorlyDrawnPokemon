@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Submitted{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h1>{{ pokemon.display_name }} submitted</h1>
+
+  {% if pending %}
+    <p class="notice">
+      Thank you for your Contribution, an admin needs to review it, but it'll be in the next release.
+    </p>
+  {% else %}
+    <p class="notice">Thank you for your Contribution.</p>
+  {% endif %}
+
+  <div class="result-frame">
+    <img src="{{ image_path }}" alt="Your drawing of {{ pokemon.display_name }}" width="320" height="320">
+  </div>
+
+  <dl class="facts">
+    <dt>File</dt><dd><code>{{ submission.file_path }}</code></dd>
+    <dt>Drawing number</dt><dd>{{ submission.index }} for this Pokémon by you</dd>
+    <dt>Public URL</dt>
+    <dd>
+      {% if public_url %}
+        <a href="{{ public_url }}"><code>{{ public_url }}</code></a>
+      {% else %}
+        <span class="muted">Not set — an Admin must set the public base URL.</span>
+      {% endif %}
+    </dd>
+  </dl>
+
+  <div class="draw-actions">
+    <form method="post" action="/draw/start" class="inline">
+      <button type="submit">Draw again</button>
+    </form>
+    <a class="muted small" href="/">Back to lobby</a>
+  </div>
+</div>
+{% endblock %}

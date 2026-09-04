@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Draw {{ hints.name }}{% endblock %}
+
+{% block content %}
+<div class="draw-layout"
+     id="draw-root"
+     data-size="{{ canvas_size }}"
+     data-tolerance="{{ fill_tolerance }}"
+     data-undo-depth="{{ undo_depth }}"
+     data-strokes="0">
+
+  <section class="card hints">
+    <p class="eyebrow">Draw this</p>
+    <h1>{{ hints.name }}</h1>
+
+    <ul class="chips">
+      {% for t in hints.types %}<li class="chip type-{{ t|lower }}">{{ t }}</li>{% endfor %}
+      <li class="chip">Gen {{ hints.generation }}</li>
+    </ul>
+
+    {% if hints.species %}<p class="species">{{ hints.species }}</p>{% endif %}
+
+    {% if hints.dex_entries %}
+      <h2>Pokédex</h2>
+      {% for entry in hints.dex_entries %}
+        <blockquote>{{ entry }}</blockquote>
+      {% endfor %}
+    {% endif %}
+  </section>
+
+  <section class="card canvas-side">
+    {% if timer_seconds %}
+      <div class="timer" id="timer" data-seconds="{{ timer_seconds }}" role="timer">
+        <span id="timer-value">{{ '%d:%02d'|format(timer_seconds // 60, timer_seconds % 60) }}</span>
+      </div>
+    {% else %}
+      <div class="timer off">No timer</div>
+    {% endif %}
+
+    <div class="toolbar" role="toolbar" aria-label="Drawing tools">
+      <div class="tool-group">
+        <button type="button" data-tool="brush" class="tool active" title="Brush">✏️</button>
+        <button type="button" data-tool="eraser" class="tool" title="Eraser (paints transparency)">🧽</button>
+        <button type="button" data-tool="fill" class="tool" title="Fill bucket">🪣</button>
+      </div>
+
+      <div class="tool-group">
+        <input type="color" id="color" value="#1f2430" title="Custom colour">
+        <div class="swatches">
+          {% for swatch in palette %}
+            <button type="button" class="swatch" data-swatch="{{ swatch }}"
+                    style="background: {{ swatch }}" title="{{ swatch }}"></button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="tool-group size-group">
+        <label for="size" class="muted small">Size</label>
+        <input type="range" id="size" min="2" max="64" value="8">
+        <span id="size-value" class="muted small">8</span>
+      </div>
+
+      <div class="tool-group">
+        <button type="button" id="undo" class="tool" title="Undo (Ctrl+Z)" disabled>↶</button>
+        <button type="button" id="redo" class="tool" title="Redo (Ctrl+Y)" disabled>↷</button>
+        <button type="button" id="clear" class="tool" title="Clear canvas">🗑️</button>
+      </div>
+    </div>
+
+    <div class="canvas-frame">
+      <canvas id="canvas" width="{{ canvas_size }}" height="{{ canvas_size }}"
+              aria-label="Drawing canvas"></canvas>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div class="draw-actions">
+      <button type="button" id="submit" disabled>Submit</button>
+      <form method="post" action="/draw/skip" class="inline">
+        <button type="submit" class="secondary">Skip</button>
+      </form>
+      <a class="muted small" href="/">Back to lobby</a>
+    </div>
+  </section>
+</div>
+
+<script src="/static/draw.js" defer></script>
+{% endblock %}

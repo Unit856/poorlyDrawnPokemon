@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}My Drawings{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>My Drawings</h1>
+
+  {% if not drawings %}
+    <p class="muted">
+      Nothing yet. <a href="/draw">Draw something</a> and it will appear here.
+    </p>
+  {% else %}
+    <p class="muted small">
+      {{ drawings|length }} drawing{{ '' if drawings|length == 1 else 's' }}, newest first.
+      This Gallery is read-only. If you want to delete something, yell at Drake.
+    </p>
+
+    <div class="gallery">
+      {% for d in drawings %}
+        <figure class="gallery-item">
+          <div class="thumb">
+            <img src="{{ d.image_path }}" alt="Your drawing of {{ d.pokemon_name }}"
+                 width="200" height="200" loading="lazy">
+          </div>
+          <figcaption>
+            <span class="gallery-name">{{ d.pokemon_name }}</span>
+            <span class="muted small">{{ d.created_at.strftime('%d %b %Y') }}</span>
+            {% if d.status == 'rejected' %}
+              <span class="pill rejected">Rejected</span>
+            {% elif d.status == 'pending' %}
+              <span class="pill pending">Awaiting review</span>
+            {% endif %}
+          </figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Export{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h1>Trivia Tricks CSV</h1>
+
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  {% if not settings.public_base_url %}
+    <p class="error">
+      The public base URL is not set. Trivia Tricks downloads images directly from
+      it, so every <code>imageURL</code> in the pack would be unusable.
+      <a href="/admin/settings">Set it first</a>.
+    </p>
+  {% endif %}
+
+  {% if over_threshold %}
+    <p class="error">
+      {{ count }} rows — approaching the ~3,000-question Workshop cap. Split at
+      {{ chunk_size }} per pack before you exceed it.
+    </p>
+  {% endif %}
+
+  <dl class="facts">
+    <dt>Approved drawings</dt><dd>{{ count }}</dd>
+    <dt>Warn threshold</dt><dd>{{ warn_threshold }} rows</dd>
+    <dt>Public base URL</dt>
+    <dd>{% if settings.public_base_url %}<code>{{ settings.public_base_url }}</code>{% else %}<span class="muted">not set</span>{% endif %}</dd>
+    {% if packs|length > 1 %}
+      <dt>Pack ranges</dt>
+      <dd>
+        {% for index, n in packs.items() %}
+          pack {{ index }}: {{ n }} rows{% if not loop.last %}<br>{% endif %}
+        {% endfor %}
+      </dd>
+    {% endif %}
+  </dl>
+
+  <form method="post" action="/admin/export">
+    <button type="submit" {% if count == 0 %}disabled{% endif %}>
+      Download Trivia Tricks CSV
+    </button>
+  </form>
+
+  <h2>What you get</h2>
+  <ul class="muted small">
+    <li>Every currently approved drawing, in uniqueId order. Pending, rejected and
+      deleted drawings are omitted.</li>
+    <li>UTF-8 with a byte-order mark so <code>Nidoran♀</code> survives Excel on
+      Windows, CRLF line endings, RFC 4180 quoting.</li>
+    <li>Options and the correct letter were frozen when each drawing was approved.
+      <strong>Re-exporting never renumbers or reshuffles an existing question</strong> —
+      a row can only change by disappearing.</li>
+    <li>Save the file into a folder named <code>WhosThatPokemon</code> and upload it
+      through Ganymede's Lab.</li>
+  </ul>
+</div>
+{% endblock %}
