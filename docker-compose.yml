@@ -17,9 +17,15 @@ services:
     expose:
       - "8000"
     ports:
-      # Loopback only. Either use the bundled Caddy profile below, or point an
-      # existing host nginx/Caddy at 127.0.0.1:8000 (scope 8.3).
-      - "127.0.0.1:8000:8000"
+      # Loopback only by default, which is why this is not a bare "8000:8000".
+      # A bare mapping binds every interface, so players could reach the app
+      # directly over plain HTTP, bypass nginx and TLS entirely, and receive
+      # session cookies with no Secure flag. Keep the 127.0.0.1 prefix unless
+      # you genuinely want the app exposed without a proxy.
+      #
+      # Change the host port with WTP_PORT in .env if 8000 is already taken on
+      # this box; the container always listens on 8000 internally.
+      - "${WTP_BIND:-127.0.0.1}:${WTP_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
       interval: 30s

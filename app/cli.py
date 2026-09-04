@@ -16,7 +16,7 @@ from app.catalog.seed import seed
 from app.db import init_db, session_scope
 from app import preflight
 from app.export import ExportBlocked, export
-from app.models import Pokemon, Role, get_or_create_settings
+from app.models import Pokemon, Role, Submission, get_or_create_settings
 from app.picker import coverage, drawing_counts, min_tier, sequence
 from app.slugs import SlugCollision
 from app.users import SlugTaken, UsernameTaken, create_user
@@ -161,6 +161,42 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_set_url(args: argparse.Namespace) -> int:
+    """Set public_base_url without needing the web UI (scope 13).
+
+    This is the base every exported imageURL is built from, so it must be the
+    address *players* reach — not how the box reaches itself.
+    """
+    url = args.url.strip().rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        print("URL must start with http:// or https://", file=sys.stderr)
+        return 2
+
+    init_db()
+    with session_scope() as session:
+        settings = get_or_create_settings(session)
+        previous = settings.public_base_url
+        settings.public_base_url = url
+        session.add(settings)
+
+        frozen = session.scalar(
+            select(func.count())
+            .select_from(Submission)
+            .where(Submission.public_url.is_not(None))
+        ) or 0
+
+    print(f"public_base_url: {previous or '(unset)'} -> {url}")
+    if frozen:
+        # Scope 10.2: imageURL is frozen per row at approval and is never
+        # rewritten, so this only affects rows approved from now on.
+        print(
+            f"NOTE: {frozen} already-approved drawing(s) keep the URL they were "
+            "frozen with. Changing this does not rewrite them.",
+            file=sys.stderr,
+        )
+    return 0
+
+
 def cmd_preflight(args: argparse.Namespace) -> int:
     """Scope 13: verify the deployment before handing a pack to friends."""
     init_db()
@@ -205,6 +241,10 @@ def main(argv: list[str] | None = None) -> int:
     p_sim.add_argument("--draws", type=int, default=1200)
     p_sim.add_argument("--seed", type=int, default=0)
     p_sim.set_defaults(func=cmd_simulate_picker)
+
+    p_url = sub.add_parser("set-url", help="set the public base URL players will reach")
+    p_url.add_argument("url", help="e.g. https://pokedraw.example.com")
+    p_url.set_defaults(func=cmd_set_url)
 
     p_pre = sub.add_parser(
         "preflight", help="check the public deployment the way a Steam client sees it"

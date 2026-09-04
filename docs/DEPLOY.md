@@ -52,7 +52,25 @@ Caddy obtains and renews the certificate itself. Certificates live in the
 
 ### Option B — an existing reverse proxy
 
-The app binds `127.0.0.1:8000` by default, so point your existing nginx at it:
+This is the path if the box already runs nginx. **Caddy needs no disabling** — it
+sits behind a compose profile, so a plain `docker compose up -d` never starts it.
+Delete the `caddy:` service, its two volumes and the `Caddyfile` if you want it
+gone entirely.
+
+A ready-to-copy site file is at
+[`docs/nginx-whos-that-pokemon.conf`](nginx-whos-that-pokemon.conf):
+
+```bash
+sudo cp docs/nginx-whos-that-pokemon.conf /etc/nginx/sites-available/whos-that-pokemon.conf
+sudo ln -s /etc/nginx/sites-available/whos-that-pokemon.conf /etc/nginx/sites-enabled/
+sudo certbot --nginx -d pokedraw.example.com
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+If port 8000 is already taken on the box, set `WTP_PORT` in `.env` and change
+`proxy_pass` to match. The container always listens on 8000 internally.
+
+Abridged, for reference:
 
 ```nginx
 server {
