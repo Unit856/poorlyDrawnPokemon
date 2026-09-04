@@ -170,10 +170,18 @@ the same moment can be handed the same Pokémon and both drawings are kept.
 one assignment to resume. `assign()` catches the race on a savepoint and resumes
 the winner, so double-clicking Draw is a no-op rather than a 500.
 
-There is no migration framework. Indexes added after a table already shipped live
-in `db._RETROFIT_DDL` as idempotent `CREATE INDEX IF NOT EXISTS` statements —
-`create_all` skips existing tables, so a plain declarative index would never
-reach a database created by an earlier slice.
+There is no migration framework. `create_all` skips existing tables, so schema
+changes after a table has shipped are applied at start-up from two lists in
+`app/db.py`:
+
+- `_RETROFIT_DDL` — idempotent `CREATE INDEX IF NOT EXISTS` statements.
+- `_RETROFIT_COLUMNS` — `(table, column, definition)` triples, applied only when
+  `PRAGMA table_info` shows the column is genuinely absent, since SQLite has no
+  `ADD COLUMN IF NOT EXISTS`.
+
+Both are additive and non-destructive by construction: new columns take a
+default, nothing is dropped or retyped. Anything beyond that — renaming,
+changing a type, backfilling from another table — needs a real migration tool.
 
 ## Canvas and images
 
@@ -206,6 +214,37 @@ non-transparent pixels. These agree except in one case: strokes drawn and then
 fully erased are non-empty by the scope's rule but rejected by the server's. The
 server wins, because publishing a blank image to a permanent immutable URL is
 worse than a confusing error.
+
+## Earned free picks
+
+Players can draw a Pokémon of their choosing, but the right is **earned**:
+`free_choice_quota` picker-assigned drawings buy one free pick of anything in the
+catalog. `0` disables the feature; the default is 5, set in Admin → Settings.
+
+This keeps §6 intact. Letting anyone draw whatever they liked would quietly
+defeat dex coverage — favourites would pile up while the long tail stayed empty.
+Because most drawings still come from the picker, coverage keeps advancing and
+choosing is a reward rather than an escape hatch.
+
+The balance is **derived, never stored**:
+
+```
+earned    = picker-assigned submissions // quota
+spent     = submissions made with a free pick
+available = earned - spent
+```
+
+No running counter means nothing to drift, double-spend or repair. Two rules make
+it hold:
+
+- **Free picks never count toward earning the next one** (`Submission.chosen`),
+  so the feature cannot bootstrap itself.
+- **Picks are spent on submit, not on selection** — skipping or abandoning a
+  chosen drawing costs nothing.
+
+Deleted drawings stop counting (deletion releases the answer unit, so it should
+not still be paying for a pick). Rejected ones still count: the artist did the
+work, and rejection is a quality call rather than a reversal of effort.
 
 ## Moderation and the uniqueId lifecycle
 
@@ -271,6 +310,22 @@ re-reads the artist's current display name, or reshuffles. Consequences:
 - A distractor whose catalog row is later disabled or renamed stays in the frozen
   question — it is still a real English Pokémon name and a fine wrong answer.
 - Retired uniqueIds never come back and are never handed to a new row.
+
+### If the base URL was wrong
+
+`imageURL` is frozen at approval, so changing `public_base_url` afterwards does
+not update rows that are already approved — that is what keeps re-export stable.
+If the base was simply *wrong* during setup, fix it without churning uniqueIds:
+
+```bash
+python -m app.cli rebase-urls --to https://correct.example.com        # dry run
+python -m app.cli rebase-urls --to https://correct.example.com --yes  # apply
+```
+
+Only the URL moves; uniqueId, options, correct letter and credit are untouched,
+so the questions are unchanged. **Pre-publication only** — §13 treats the
+hostname as permanent once a pack has shipped, and rewriting URLs on questions
+players already have is exactly what freezing exists to prevent.
 
 `tests/test_export.py::test_re_export_stability_under_mutation` is acceptance
 criterion 10 in full: export, unapprove a row, rename the artist, add a drawing,

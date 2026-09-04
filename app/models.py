@@ -145,6 +145,11 @@ class Submission(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    #: True when the artist spent a free pick instead of drawing what the picker
+    #: dealt. Only picker-assigned drawings earn quota, so this is what stops a
+    #: free pick from paying for the next one.
+    chosen: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     pokemon: Mapped[Pokemon] = relationship(back_populates="submissions")
     user: Mapped[User] = relationship(back_populates="submissions")
 
@@ -177,6 +182,8 @@ class DrawSession(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome: Mapped[SessionOutcome | None] = mapped_column(String(20), nullable=True)
+    #: Carried onto the Submission when this session is submitted.
+    chosen: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     user: Mapped[User] = relationship()
     pokemon: Mapped[Pokemon] = relationship()
@@ -209,6 +216,11 @@ class Settings(Base):
     # Monotonic. Only ever increases; a retired uniqueId is simply one no live
     # row points at, which is how "never reused" is enforced (scope 11).
     next_unique_id: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    #: Picker-assigned drawings needed to earn one free pick. 0 disables the
+    #: feature. Keeps scope 6 coverage intact: choice is earned by doing the
+    #: picker's work, not a way around it.
+    free_choice_quota: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_settings_singleton"),)
 

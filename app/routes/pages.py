@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.auth import DbSession, RequireUser
 from app.draw import TIMER_CHOICES, current_session, default_timer
+from app.freechoice import balance
 from app.models import Pokemon, Submission, SubmissionStatus, get_or_create_settings
 from app.submissions import gallery_for
 from app.templating import render
@@ -51,6 +52,7 @@ def lobby(request: Request, db: DbSession, user: RequireUser):
         open_session=open_view,
         timer_choices=TIMER_CHOICES,
         default_timer=default_timer(db),
+        balance=balance(db, user),
     )
 
 

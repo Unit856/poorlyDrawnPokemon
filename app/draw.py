@@ -49,21 +49,26 @@ def assign(
     *,
     timer_seconds: int | None = None,
     rng: random.Random | None = None,
+    choice: Pokemon | None = None,
 ) -> DrawSession:
     """Open a session, or return the existing one untouched.
 
     Returning the existing session rather than re-rolling is the whole point of
     scope 7.1: hitting Draw again must not hand out a different Pokemon.
+
+    `choice` bypasses the picker for an earned free pick. The session is flagged
+    so the resulting submission can be excluded from quota accounting.
     """
     existing = current_session(db, user)
     if existing is not None:
         return existing
 
-    pokemon = pick(db, rng)
+    pokemon = choice or pick(db, rng)
     session = DrawSession(
         user_id=user.id,
         pokemon_id=pokemon.id,
         timer_seconds=timer_seconds,
+        chosen=choice is not None,
     )
     try:
         # Savepoint, so losing this race does not poison the whole transaction.

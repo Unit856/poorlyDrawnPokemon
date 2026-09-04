@@ -44,6 +44,17 @@
       </span>
     </label>
 
+    <label>Free-pick quota
+      <input type="number" name="free_choice_quota" min="0" max="100"
+             value="{{ settings.free_choice_quota }}">
+      <span class="muted small">
+        Picker-assigned drawings a player must complete to earn one free pick of
+        any Pokémon they like. <strong>0 switches the feature off.</strong>
+        Free picks do not count toward earning the next one, so most drawings
+        still come from the picker and the Pokédex keeps getting covered.
+      </span>
+    </label>
+
     <button type="submit">Save</button>
   </form>
 

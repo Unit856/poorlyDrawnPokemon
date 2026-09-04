@@ -36,7 +36,14 @@ def initial_status(db: Session) -> SubmissionStatus:
     )
 
 
-def create_submission(db: Session, pokemon: Pokemon, user: User, data: bytes) -> Submission:
+def create_submission(
+    db: Session,
+    pokemon: Pokemon,
+    user: User,
+    data: bytes,
+    *,
+    chosen: bool = False,
+) -> Submission:
     """Write the PNG and record the submission.
 
     The file is written before the row is inserted. If the insert then fails the
@@ -53,6 +60,7 @@ def create_submission(db: Session, pokemon: Pokemon, user: User, data: bytes) ->
         index=stored.index,
         file_path=stored.filename,
         status=status,
+        chosen=chosen,
     )
     try:
         with db.begin_nested():

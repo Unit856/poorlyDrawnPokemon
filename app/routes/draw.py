@@ -12,8 +12,13 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from urllib.parse import quote
+
+from sqlalchemy import and_, func, select
+
 from app import config
 from app.auth import DbSession, RequireUser
+from app.freechoice import balance, can_choose
 from app.draw import (
     TIMER_CHOICES,
     assign,
@@ -104,6 +109,87 @@ def skip_current(request: Request, db: DbSession, user: RequireUser):
     return RedirectResponse("/draw", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.get("/draw/choose")
+def choose_form(request: Request, db: DbSession, user: RequireUser, error: str = ""):
+    state = balance(db, user)
+    return render(
+        request,
+        "draw_choose.html",
+        balance=state,
+        open_session=current_session(db, user) is not None,
+        error=error or None,
+    )
+
+
+@router.get("/draw/search")
+def search(db: DbSession, user: RequireUser, q: str = ""):
+    """Typeahead over the catalog. 1,082 rows is too many for a <select>."""
+    term = q.strip()
+    if len(term) < 2:
+        return {"results": []}
+
+    rows = db.execute(
+        select(Pokemon.slug, Pokemon.display_name, func.count(Submission.id))
+        .outerjoin(
+            Submission,
+            and_(
+                Submission.pokemon_id == Pokemon.id,
+                Submission.status != SubmissionStatus.DELETED,
+            ),
+        )
+        .where(Pokemon.enabled.is_(True), Pokemon.display_name.ilike(f"%{term}%"))
+        .group_by(Pokemon.id)
+        .order_by(Pokemon.national_dex)
+        .limit(25)
+    ).all()
+
+    return {
+        "results": [
+            {"slug": slug, "name": name, "drawings": count} for slug, name, count in rows
+        ]
+    }
+
+
+@router.post("/draw/choose")
+def choose(
+    request: Request,
+    db: DbSession,
+    user: RequireUser,
+    slug: Annotated[str, Form()],
+    timer: Annotated[str, Form()] = "",
+):
+    """Spend an earned free pick on a specific Pokemon."""
+    if current_session(db, user) is not None:
+        return RedirectResponse(
+            "/draw/choose?error="
+            + quote("Finish or skip your current Pokémon first."),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not can_choose(db, user):
+        state = balance(db, user)
+        message = (
+            "Free picks are switched off."
+            if not state.enabled
+            else f"No free picks yet — {state.remaining} more drawing(s) to earn one."
+        )
+        return RedirectResponse(
+            f"/draw/choose?error={quote(message)}", status_code=status.HTTP_303_SEE_OTHER
+        )
+
+    pokemon = db.scalar(
+        select(Pokemon).where(Pokemon.slug == slug.strip(), Pokemon.enabled.is_(True))
+    )
+    if pokemon is None:
+        return RedirectResponse(
+            "/draw/choose?error=" + quote("That Pokémon is not in the catalog."),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    assign(db, user, timer_seconds=normalise_timer(timer), choice=pokemon)
+    return RedirectResponse("/draw", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/draw/submit")
 async def submit(
     request: Request,
@@ -137,7 +223,7 @@ async def submit(
     pokemon = db.get(Pokemon, session.pokemon_id)
     data = await image.read()
     try:
-        submission = create_submission(db, pokemon, user, data)
+        submission = create_submission(db, pokemon, user, data, chosen=bool(session.chosen))
     except ImageRejected as exc:
         return JSONResponse({"error": str(exc)}, status_code=status.HTTP_400_BAD_REQUEST)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -10,6 +11,8 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import config
+
+log = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -78,11 +81,39 @@ def session_scope() -> Iterator[Session]:
 #: Indexes added after a table already existed somewhere. `create_all` skips
 #: existing tables entirely, so a plain declarative Index would never reach a
 #: database created by an earlier slice. There is no migration framework here by
-#: design; this list is the whole of it.
+#: design; these two lists are the whole of it.
 _RETROFIT_DDL = (
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_open_draw_session "
     "ON draw_sessions (user_id) WHERE resolved_at IS NULL",
 )
+
+#: (table, column, column definition). SQLite has no ADD COLUMN IF NOT EXISTS,
+#: so each is applied only when the column is genuinely absent. Additive and
+#: non-destructive by construction: new columns take a default, nothing is
+#: dropped or retyped. Anything beyond that needs a real migration tool.
+_RETROFIT_COLUMNS = (
+    ("submissions", "chosen", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("draw_sessions", "chosen", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("settings", "free_choice_quota", "INTEGER NOT NULL DEFAULT 5"),
+)
+
+
+def _existing_columns(conn, table: str) -> set[str]:
+    rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+    return {row[1] for row in rows}
+
+
+def _apply_retrofits(conn) -> None:
+    for statement in _RETROFIT_DDL:
+        conn.exec_driver_sql(statement)
+
+    for table, column, definition in _RETROFIT_COLUMNS:
+        present = _existing_columns(conn, table)
+        if not present:
+            continue  # table does not exist yet; create_all will build it correctly
+        if column not in present:
+            log.info("adding column %s.%s", table, column)
+            conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def init_db() -> None:
@@ -94,5 +125,4 @@ def init_db() -> None:
 
     if engine.dialect.name == "sqlite":
         with engine.begin() as conn:
-            for statement in _RETROFIT_DDL:
-                conn.exec_driver_sql(statement)
+            _apply_retrofits(conn)

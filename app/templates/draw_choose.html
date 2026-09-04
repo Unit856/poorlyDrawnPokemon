@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Choose a Pokémon{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h1>Draw a specific Pokémon</h1>
+
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  {% if not balance.enabled %}
+    <p class="notice">Free picks are switched off. Ask an Admin to set a quota.</p>
+
+  {% elif open_session %}
+    <p class="notice">
+      You already have a Pokémon assigned. Finish it or skip it on the
+      <a href="/draw">draw page</a> first.
+    </p>
+
+  {% elif balance.available < 1 %}
+    <p class="notice">
+      No free picks yet. Draw <strong>{{ balance.remaining }}</strong> more
+      {{ 'Pokémon' if balance.remaining == 1 else 'Pokémon' }} from the picker to earn one.
+    </p>
+    <p class="muted small">
+      {{ balance.toward_next }} of {{ balance.quota }} toward your next pick.
+      Picks are earned by drawing what you are dealt — that is what keeps the
+      whole Pokédex getting covered.
+    </p>
+    <p><a href="/">Back to the lobby</a></p>
+
+  {% else %}
+    <p class="notice">
+      You have <strong>{{ balance.available }}</strong> free
+      pick{{ '' if balance.available == 1 else 's' }}. Spend one on anything you like.
+    </p>
+
+    <form method="post" action="/draw/choose" id="choose-form">
+      <label for="search">Search the Pokédex
+        <input type="text" id="search" autocomplete="off" placeholder="Start typing a name…">
+      </label>
+      <input type="hidden" name="slug" id="chosen-slug">
+
+      <ul class="search-results" id="search-results"></ul>
+
+      <p id="chosen-label" class="muted small">Nothing selected yet.</p>
+
+      <label for="timer">Timer
+        <select name="timer" id="timer">
+          <option value="">Off</option>
+          <option value="60">60 seconds</option>
+          <option value="90">90 seconds</option>
+          <option value="120">120 seconds</option>
+          <option value="180">180 seconds</option>
+        </select>
+      </label>
+
+      <button type="submit" id="choose-submit" disabled>Draw this Pokémon</button>
+    </form>
+
+    <p class="muted small">
+      The pick is only spent when you submit a drawing — skipping or wandering
+      off costs you nothing.
+    </p>
+  {% endif %}
+</div>
+
+<script>
+  (function () {
+    var search = document.getElementById("search");
+    if (!search) return;
+
+    var list = document.getElementById("search-results");
+    var slug = document.getElementById("chosen-slug");
+    var label = document.getElementById("chosen-label");
+    var submit = document.getElementById("choose-submit");
+    var timer = null;
+
+    function select(item) {
+      slug.value = item.slug;
+      label.textContent =
+        item.name + " — " + item.drawings + " drawing" + (item.drawings === 1 ? "" : "s") + " so far";
+      submit.disabled = false;
+      list.innerHTML = "";
+      search.value = item.name;
+    }
+
+    function render(results) {
+      list.innerHTML = "";
+      results.forEach(function (item) {
+        var li = document.createElement("li");
+        li.className = "search-result";
+        li.tabIndex = 0;
+        li.textContent = item.name;
+
+        var count = document.createElement("span");
+        count.className = "muted small";
+        count.textContent = item.drawings === 0 ? "undrawn" : item.drawings + " drawn";
+        li.appendChild(count);
+
+        li.addEventListener("click", function () { select(item); });
+        li.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); select(item); }
+        });
+        list.appendChild(li);
+      });
+    }
+
+    search.addEventListener("input", function () {
+      slug.value = "";
+      submit.disabled = true;
+      label.textContent = "Nothing selected yet.";
+
+      window.clearTimeout(timer);
+      var term = search.value.trim();
+      if (term.length < 2) { list.innerHTML = ""; return; }
+
+      timer = window.setTimeout(function () {
+        fetch("/draw/search?q=" + encodeURIComponent(term), { credentials: "same-origin" })
+          .then(function (r) { return r.json(); })
+          .then(function (b) { render(b.results || []); })
+          .catch(function () { list.innerHTML = ""; });
+      }, 180);
+    });
+
+    // Enter in the search box should not submit an empty selection.
+    document.getElementById("choose-form").addEventListener("submit", function (e) {
+      if (!slug.value) e.preventDefault();
+    });
+  })();
+</script>
+{% endblock %}

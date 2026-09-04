@@ -57,6 +57,7 @@
       <div class="tool-group size-group">
         <label for="size" class="muted small">Size</label>
         <input type="range" id="size" min="2" max="64" value="8">
+        <span class="size-preview" id="size-preview" aria-hidden="true"><span id="size-dot" class="size-dot"></span></span>
         <span id="size-value" class="muted small">8</span>
       </div>
 
@@ -67,9 +68,10 @@
       </div>
     </div>
 
-    <div class="canvas-frame">
+    <div class="canvas-frame" id="canvas-frame">
       <canvas id="canvas" width="{{ canvas_size }}" height="{{ canvas_size }}"
               aria-label="Drawing canvas"></canvas>
+      <div class="brush-ring" id="brush-ring" aria-hidden="true"></div>
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

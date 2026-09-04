@@ -180,6 +180,7 @@ def update_settings(
     public_base_url: Annotated[str, Form()] = "",
     default_timer_seconds: Annotated[str, Form()] = "",
     require_approval: Annotated[str, Form()] = "",
+    free_choice_quota: Annotated[str, Form()] = "",
 ):
     settings = get_or_create_settings(db)
 
@@ -197,6 +198,22 @@ def update_settings(
     # Scope 9. Toggling this only affects *new* submissions: anything already
     # pending stays pending until an Admin works the queue.
     settings.require_approval = require_approval.lower() in {"1", "on", "true", "yes"}
+
+    if free_choice_quota.strip():
+        try:
+            quota = int(free_choice_quota)
+        except ValueError:
+            return _settings_page(
+                request, db, error="Free-pick quota must be a whole number.",
+                status_code=status_lib.HTTP_400_BAD_REQUEST,
+            )
+        if quota < 0 or quota > 100:
+            return _settings_page(
+                request, db, error="Free-pick quota must be between 0 and 100.",
+                status_code=status_lib.HTTP_400_BAD_REQUEST,
+            )
+        settings.free_choice_quota = quota
+
     db.add(settings)
     return RedirectResponse("/admin/settings?saved=1", status_code=status_lib.HTTP_303_SEE_OTHER)
 

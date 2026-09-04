@@ -7,6 +7,7 @@ import io
 import random
 
 import pytest
+from sqlalchemy import select
 
 from app import config
 from app.export import (
@@ -386,3 +387,49 @@ def test_an_approved_row_missing_an_id_is_repaired_by_the_export(session, catalo
     rows = parse(export(session)[0])
     assert len(rows) == 1
     assert submission.unique_id is not None
+
+
+# --- rebasing frozen URLs (scope 13) ----------------------------------------
+
+def rebase(session, base):
+    """Mirrors `app.cli rebase-urls`: only the URL moves."""
+    from app.images import resolve_public_url
+    from app.models import Submission as S
+
+    changed = 0
+    for submission in session.scalars(select(S).where(S.public_url.is_not(None))).all():
+        new = resolve_public_url(base, submission.file_path)
+        if submission.public_url != new:
+            submission.public_url = new
+            session.add(submission)
+            changed += 1
+    session.flush()
+    return changed
+
+
+def test_rebasing_moves_the_url_and_nothing_else(session, catalog, user, configured):
+    """The setup-typo case: approved under a wrong base, fixed before publishing."""
+    first = approved(session, catalog[0], user)
+    second = approved(session, catalog[1], user)
+    before = {r["uniqueId"]: r for r in parse(export(session)[0])}
+
+    assert rebase(session, "https://corrected.example.com") == 2
+    after = {r["uniqueId"]: r for r in parse(export(session)[0])}
+
+    assert set(before) == set(after), "uniqueIds must not change"
+    for uid in before:
+        for column in ("question", "optionA", "optionB", "optionC", "optionD",
+                       "correctAnswer", "credit", "fixedOrder"):
+            assert after[uid][column] == before[uid][column], f"{column} changed on row {uid}"
+        assert after[uid]["imageURL"] != before[uid]["imageURL"]
+        assert after[uid]["imageURL"].startswith("https://corrected.example.com/images/")
+
+    # The filenames themselves are permanent; only the host in front moved.
+    assert after[str(first.unique_id)]["imageURL"].endswith(first.file_path)
+    assert after[str(second.unique_id)]["imageURL"].endswith(second.file_path)
+
+
+def test_rebasing_is_idempotent(session, catalog, user, configured):
+    approved(session, catalog[0], user)
+    rebase(session, "https://corrected.example.com")
+    assert rebase(session, "https://corrected.example.com") == 0

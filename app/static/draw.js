@@ -17,6 +17,8 @@
   var UNDO_DEPTH = parseInt(root.dataset.undoDepth, 10) || 30;
 
   var canvas = document.getElementById("canvas");
+  var frame = document.getElementById("canvas-frame");
+  var ring = document.getElementById("brush-ring");
   var ctx = canvas.getContext("2d", { willReadFrequently: true });
   canvas.width = SIZE;
   canvas.height = SIZE;
@@ -29,7 +31,8 @@
     strokes: 0,        // committed strokes; the scope 7.3 emptiness rule
     undo: [],
     redo: [],
-    submitting: false
+    submitting: false,
+    pointer: null      // last pointer position, so the ring can resize in place
   };
 
   // --- history ------------------------------------------------------------
@@ -148,6 +151,84 @@
     root.dataset.strokes = String(state.strokes);
   }
 
+  // --- brush cursor ring ---------------------------------------------------
+  // Shows the true footprint of the brush under the pointer, using the same
+  // display scale as the toolbar preview. Deliberately not clamped: unlike the
+  // toolbar swatch there is no box to overflow, so this one is exact at every
+  // size.
+
+  function displayScale() {
+    var displayed = canvas.getBoundingClientRect().width;
+    return displayed ? displayed / SIZE : 1;
+  }
+
+  function hideRing() {
+    if (!ring) return;
+    ring.classList.remove("visible");
+    if (frame) frame.classList.remove("hide-cursor");
+  }
+
+  function updateRing(event) {
+    if (!ring) return;
+
+    if (event) {
+      // Touch already has a finger where the ring would be, and the fill tool
+      // ignores brush size entirely.
+      if (event.pointerType === "touch") { hideRing(); return; }
+      state.pointer = { x: event.clientX, y: event.clientY };
+    }
+    if (state.tool === "fill" || !state.pointer) { hideRing(); return; }
+
+    var rect = canvas.getBoundingClientRect();
+    var diameter = Math.max(2, state.size * displayScale());
+
+    ring.style.width = diameter + "px";
+    ring.style.height = diameter + "px";
+    // The frame has no padding, so the canvas origin is the ring's containing
+    // block origin -- these offsets are exact.
+    ring.style.left = (state.pointer.x - rect.left) + "px";
+    ring.style.top = (state.pointer.y - rect.top) + "px";
+    ring.classList.add("visible");
+    frame.classList.add("hide-cursor");
+  }
+
+  // --- stroke size preview ------------------------------------------------
+  // The backing store is SIZE px wide but displays smaller, so a dot drawn at
+  // `state.size` screen pixels would be roughly twice the real brush. Scale by
+  // the same ratio the canvas is displayed at, or the preview lies.
+
+  function updateSizePreview() {
+    var dot = byId("size-dot");
+    if (!dot) return;
+
+    var displayed = canvas.getBoundingClientRect().width;
+    var scale = displayed ? displayed / SIZE : 1;
+    var diameter = Math.max(2, Math.round(state.size * scale));
+
+    // Clamp to the swatch box. Only bites at the largest brushes on a very
+    // wide window; the numeric readout stays exact either way.
+    var maxDiameter = 40;
+    var clamped = Math.min(diameter, maxDiameter);
+
+    dot.style.width = clamped + "px";
+    dot.style.height = clamped + "px";
+
+    if (state.tool === "eraser") {
+      // Hollow ring: the eraser removes paint rather than laying any down.
+      dot.style.background = "transparent";
+      dot.style.boxShadow = "inset 0 0 0 2px var(--muted)";
+    } else {
+      dot.style.background = state.color;
+      dot.style.boxShadow = "none";
+    }
+
+    var box = byId("size-preview");
+    if (box) {
+      box.title =
+        state.size + " px brush" + (clamped < diameter ? " (preview clamped)" : "");
+    }
+  }
+
   // --- flood fill ---------------------------------------------------------
   // 4-connected, fixed per-channel tolerance, on a rasterised snapshot of the
   // whole canvas (scope 7.2). Leaks through antialiased stroke edges are a
@@ -225,10 +306,21 @@
     beginStroke(event);
   });
 
-  canvas.addEventListener("pointermove", extendStroke);
+  canvas.addEventListener("pointermove", function (event) {
+    extendStroke(event);
+    updateRing(event);
+  });
+  canvas.addEventListener("pointerenter", updateRing);
   canvas.addEventListener("pointerup", endStroke);
-  canvas.addEventListener("pointercancel", endStroke);
-  canvas.addEventListener("pointerleave", endStroke);
+  canvas.addEventListener("pointercancel", function (event) {
+    endStroke(event);
+    hideRing();
+  });
+  canvas.addEventListener("pointerleave", function (event) {
+    endStroke(event);
+    state.pointer = null;
+    hideRing();
+  });
   // Stop the browser panning/scrolling while drawing on a tablet.
   canvas.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
   canvas.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
@@ -241,6 +333,8 @@
       Array.prototype.forEach.call(document.querySelectorAll("[data-tool]"), function (b) {
         b.classList.toggle("active", b === button);
       });
+      updateSizePreview();
+      updateRing();
     });
   });
 
@@ -250,6 +344,8 @@
       byId("color").value = state.color;
       if (state.tool === "eraser") state.tool = "brush";
       syncToolButtons();
+      updateSizePreview();
+      updateRing();
     });
   });
 
@@ -259,10 +355,15 @@
     });
   }
 
-  byId("color").addEventListener("input", function (e) { state.color = e.target.value; });
+  byId("color").addEventListener("input", function (e) {
+    state.color = e.target.value;
+    updateSizePreview();
+  });
   byId("size").addEventListener("input", function (e) {
     state.size = parseInt(e.target.value, 10);
     byId("size-value").textContent = state.size;
+    updateSizePreview();
+    updateRing();
   });
 
   byId("undo").addEventListener("click", undo);
@@ -384,7 +485,13 @@
     }
   }
 
+  window.addEventListener("resize", function () {
+    updateSizePreview();
+    updateRing();
+  });
+
   updateStrokeState();
   refreshButtons();
   syncToolButtons();
+  updateSizePreview();
 })();

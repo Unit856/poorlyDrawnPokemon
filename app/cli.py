@@ -16,7 +16,15 @@ from app.catalog.seed import seed
 from app.db import init_db, session_scope
 from app import preflight
 from app.export import ExportBlocked, export
-from app.models import Pokemon, Role, Submission, get_or_create_settings
+from app.images import resolve_public_url
+from app.models import (
+    Pokemon,
+    Role,
+    Submission,
+    SubmissionStatus,
+    User,
+    get_or_create_settings,
+)
 from app.picker import coverage, drawing_counts, min_tier, sequence
 from app.slugs import SlugCollision
 from app.users import SlugTaken, UsernameTaken, create_user
@@ -161,6 +169,172 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rebase_urls(args: argparse.Namespace) -> int:
+    """Repoint already-frozen imageURLs at a new base (scope 13).
+
+    Normally imageURL is frozen at approval and never rewritten, because
+    re-export has to be byte-stable for rows players have already seen. The
+    scope qualifies that with "once the first pack is published" -- so this
+    exists for the window *before* publication, when the base URL was simply
+    wrong and the alternative is unapprove/re-approve churning every uniqueId.
+
+    Only the URL moves. uniqueId, options, correct letter and credit are all
+    left alone, so the questions themselves are unchanged.
+    """
+    init_db()
+    with session_scope() as session:
+        settings = get_or_create_settings(session)
+
+        base = (args.to or settings.public_base_url or "").strip().rstrip("/")
+        if not base:
+            print(
+                "no target base URL: pass --to, or set one with 'set-url' first",
+                file=sys.stderr,
+            )
+            return 2
+        if not base.startswith(("http://", "https://")):
+            print("URL must start with http:// or https://", file=sys.stderr)
+            return 2
+
+        rows = session.scalars(
+            select(Submission).where(Submission.public_url.is_not(None))
+        ).all()
+        changes = [
+            (s, s.public_url, resolve_public_url(base, s.file_path))
+            for s in rows
+            if s.public_url != resolve_public_url(base, s.file_path)
+        ]
+
+        if not changes:
+            print(f"nothing to do: every frozen URL already uses {base}")
+            return 0
+
+        print(f"{len(changes)} frozen URL(s) would change to base {base}:")
+        for submission, old, new in changes[:10]:
+            print(f"  #{submission.unique_id}  {old}")
+            print(f"           -> {new}")
+        if len(changes) > 10:
+            print(f"  ... and {len(changes) - 10} more")
+
+        if not args.yes:
+            print()
+            print("dry run. Re-run with --yes to apply.")
+            print(
+                "Only do this BEFORE the pack is uploaded to the Workshop. If players "
+                "already have it, re-exporting after this changes imageURL on questions "
+                "they have seen, which is exactly what freezing exists to prevent.",
+                file=sys.stderr,
+            )
+            return 0
+
+        for submission, _old, new in changes:
+            submission.public_url = new
+            session.add(submission)
+        if args.to:
+            settings.public_base_url = base
+            session.add(settings)
+
+        print(f"rewrote {len(changes)} URL(s). Re-export to pick them up.")
+    return 0
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Show every submission and whether it would reach the CSV.
+
+    Diagnostic for "my pack is missing drawings". The export filters on status
+    alone, so anything absent is absent because of its status or its freeze
+    state -- this prints both.
+    """
+    init_db()
+    with session_scope() as session:
+        rows = session.execute(
+            select(Submission, Pokemon, User)
+            .join(Pokemon, Submission.pokemon_id == Pokemon.id)
+            .join(User, Submission.user_id == User.id)
+            .order_by(Submission.id)
+        ).all()
+
+        if not rows:
+            print("no submissions at all")
+            return 0
+
+        by_artist: dict[str, dict[str, int]] = {}
+        exported = 0
+
+        print(f"{'id':>4} {'uid':>5}  {'artist':<14} {'pokemon':<22} {'status':<9} exported?")
+        print("-" * 74)
+        for submission, pokemon, user in rows:
+            status = SubmissionStatus(submission.status).value
+            will_export = status == SubmissionStatus.APPROVED.value
+            exported += will_export
+            by_artist.setdefault(user.username, {}).setdefault(status, 0)
+            by_artist[user.username][status] += 1
+            print(
+                f"{submission.id:>4} {str(submission.unique_id or '-'):>5}  "
+                f"{user.username:<14} {pokemon.display_name:<22} {status:<9} "
+                f"{'yes' if will_export else 'NO'}"
+            )
+
+        print()
+        print("by artist:")
+        for username, counts in sorted(by_artist.items()):
+            breakdown = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+            print(f"  {username:<14} {breakdown}")
+
+        print()
+        print(f"would appear in the CSV: {exported} of {len(rows)}")
+        if exported != len(rows):
+            print(
+                "Anything marked NO is pending, rejected or deleted. "
+                "Approve it in Admin > Queue, then export again."
+            )
+    return 0
+
+
+def cmd_set_display_name(args: argparse.Namespace) -> int:
+    """Change the credit a player's *future* questions are published under.
+
+    Deliberately does not touch anything already approved: `credit_name` is
+    snapshotted at approval and `slug` was frozen at account creation, so
+    published rows and existing filenames keep the old name (scope 8.1, 10.2).
+    """
+    new_name = args.display_name.strip()
+    if not new_name:
+        print("display name must not be empty", file=sys.stderr)
+        return 2
+    if len(new_name) > 32:
+        print("display name must be 32 characters or fewer", file=sys.stderr)
+        return 2
+
+    init_db()
+    with session_scope() as session:
+        user = session.scalar(select(User).where(User.username == args.username))
+        if user is None:
+            print(f"no user named {args.username!r}", file=sys.stderr)
+            return 2
+
+        previous = user.display_name
+        user.display_name = new_name
+        session.add(user)
+
+        frozen = session.scalar(
+            select(func.count())
+            .select_from(Submission)
+            .where(Submission.user_id == user.id, Submission.credit_name.is_not(None))
+        ) or 0
+        slug = user.slug
+
+    print(f"{args.username}: display name {previous!r} -> {new_name!r}")
+    print(f"artist slug stays {slug!r} (it is in every filename this account has written)")
+    if frozen:
+        print(
+            f"NOTE: {frozen} already-approved drawing(s) keep the credit {previous!r}. "
+            "Only questions approved from now on use the new name.",
+            file=sys.stderr,
+        )
+    return 0
+
+
 def cmd_set_url(args: argparse.Namespace) -> int:
     """Set public_base_url without needing the web UI (scope 13).
 
@@ -241,6 +415,25 @@ def main(argv: list[str] | None = None) -> int:
     p_sim.add_argument("--draws", type=int, default=1200)
     p_sim.add_argument("--seed", type=int, default=0)
     p_sim.set_defaults(func=cmd_simulate_picker)
+
+    sub.add_parser(
+        "audit", help="list every submission and whether it would reach the CSV"
+    ).set_defaults(func=cmd_audit)
+
+    p_rebase = sub.add_parser(
+        "rebase-urls",
+        help="repoint already-frozen imageURLs at a new base (pre-publication only)",
+    )
+    p_rebase.add_argument("--to", default=None, help="new base URL; also updates the setting")
+    p_rebase.add_argument("--yes", action="store_true", help="apply (default is a dry run)")
+    p_rebase.set_defaults(func=cmd_rebase_urls)
+
+    p_name = sub.add_parser(
+        "set-display-name", help="change the credit a player's future questions use"
+    )
+    p_name.add_argument("username")
+    p_name.add_argument("display_name")
+    p_name.set_defaults(func=cmd_set_display_name)
 
     p_url = sub.add_parser("set-url", help="set the public base URL players will reach")
     p_url.add_argument("url", help="e.g. https://pokedraw.example.com")

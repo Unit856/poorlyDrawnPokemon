@@ -25,6 +25,26 @@
     <button type="submit">{{ "Resume drawing" if open_session else "Draw" }}</button>
   </form>
 
+  {% if balance.enabled %}
+    <div class="quota">
+      {% if balance.available %}
+        <p>
+          <strong>{{ balance.available }}</strong> free
+          pick{{ '' if balance.available == 1 else 's' }} available —
+          <a href="/draw/choose">draw a specific Pokémon</a>.
+        </p>
+      {% else %}
+        <p class="muted small">
+          {{ balance.toward_next }} / {{ balance.quota }} toward a free pick.
+          Draw {{ balance.remaining }} more from the picker to choose your own.
+        </p>
+      {% endif %}
+      <div class="quota-bar" aria-hidden="true">
+        <span style="width: {{ (100 * balance.toward_next / balance.quota)|round|int if not balance.available else 100 }}%"></span>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="tiles">
     <a class="tile" href="/drawings">
       <span class="tile-title">My Drawings</span>
